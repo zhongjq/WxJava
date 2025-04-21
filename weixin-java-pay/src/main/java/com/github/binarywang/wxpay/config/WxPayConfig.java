@@ -4,7 +4,8 @@ import com.github.binarywang.wxpay.exception.WxPayException;
 import com.github.binarywang.wxpay.util.HttpProxyUtils;
 import com.github.binarywang.wxpay.util.ResourcesUtils;
 import com.github.binarywang.wxpay.v3.WxPayV3HttpClientBuilder;
-import com.github.binarywang.wxpay.v3.auth.*;
+import com.github.binarywang.wxpay.v3.auth.Verifier;
+import com.github.binarywang.wxpay.v3.auth.WxPayValidator;
 import com.github.binarywang.wxpay.v3.util.PemUtils;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -19,7 +20,6 @@ import org.apache.http.ssl.SSLContexts;
 import javax.net.ssl.SSLContext;
 import java.io.*;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -228,6 +228,11 @@ public class WxPayConfig {
   private Verifier verifier;
 
   /**
+   * 是否将全部v3接口的请求都添加Wechatpay-Serial请求头，默认不添加
+   */
+  private boolean strictlyNeedWechatPaySerial = false;
+
+  /**
    * 返回所设置的微信支付接口请求地址域名.
    *
    * @return 微信支付接口请求地址域名
@@ -320,16 +325,12 @@ public class WxPayConfig {
       //构造Http Proxy正向代理
       WxPayHttpProxy wxPayHttpProxy = getWxPayHttpProxy();
 
-      Verifier certificatesVerifier;
-      if (publicKey == null) {
-        certificatesVerifier =
-          new AutoUpdateCertificatesVerifier(
-            new WxPayCredentials(mchId, new PrivateKeySigner(certSerialNo, merchantPrivateKey)),
-            this.getApiV3Key().getBytes(StandardCharsets.UTF_8), this.getCertAutoUpdateTime(),
-            this.getPayBaseUrl(), wxPayHttpProxy);
-      } else {
-        certificatesVerifier = new PublicCertificateVerifier(publicKey, publicKeyId);
-      }
+      // 构造证书验签器
+      Verifier certificatesVerifier = VerifierBuilder.build(
+        this.getCertSerialNo(), this.getMchId(), this.getApiV3Key(), merchantPrivateKey, wxPayHttpProxy,
+        this.getCertAutoUpdateTime(), this.getPayBaseUrl(),
+        this.getPublicKeyId(), publicKey
+      );
 
       WxPayV3HttpClientBuilder wxPayV3HttpClientBuilder = WxPayV3HttpClientBuilder.create()
         .withMerchant(mchId, certSerialNo, merchantPrivateKey)
@@ -382,7 +383,7 @@ public class WxPayConfig {
     if (configContent != null) {
       return new ByteArrayInputStream(configContent);
     }
-    
+
     if (StringUtils.isNotEmpty(configString)) {
       configContent = Base64.getDecoder().decode(configString);
       return new ByteArrayInputStream(configContent);
