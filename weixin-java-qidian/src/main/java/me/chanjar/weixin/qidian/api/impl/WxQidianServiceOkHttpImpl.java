@@ -2,7 +2,7 @@ package me.chanjar.weixin.qidian.api.impl;
 
 import me.chanjar.weixin.common.error.WxErrorException;
 import me.chanjar.weixin.common.error.WxRuntimeException;
-import me.chanjar.weixin.common.util.http.HttpType;
+import me.chanjar.weixin.common.util.http.HttpClientType;
 import me.chanjar.weixin.common.util.http.okhttp.DefaultOkHttpClientBuilder;
 import me.chanjar.weixin.common.util.http.okhttp.OkHttpProxyInfo;
 import me.chanjar.weixin.qidian.config.WxQidianConfigStorage;
@@ -35,8 +35,8 @@ public class WxQidianServiceOkHttpImpl extends BaseWxQidianServiceImpl<OkHttpCli
   }
 
   @Override
-  public HttpType getRequestType() {
-    return HttpType.OK_HTTP;
+  public HttpClientType getRequestType() {
+    return HttpClientType.OK_HTTP;
   }
 
   @Override
@@ -80,11 +80,11 @@ public class WxQidianServiceOkHttpImpl extends BaseWxQidianServiceImpl<OkHttpCli
       clientBuilder.proxy(getRequestHttpProxy().getProxy());
 
       // 设置授权
-      clientBuilder.authenticator(new Authenticator() {
+      clientBuilder.proxyAuthenticator(new Authenticator() {
         @Override
         public Request authenticate(Route route, Response response) throws IOException {
           String credential = Credentials.basic(httpProxy.getProxyUsername(), httpProxy.getProxyPassword());
-          return response.request().newBuilder().header("Authorization", credential).build();
+          return response.request().newBuilder().header("Proxy-Authorization", credential).build();
         }
       });
       httpClient = clientBuilder.build();
